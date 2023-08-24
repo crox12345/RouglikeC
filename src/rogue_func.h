@@ -37,6 +37,9 @@ typedef struct Monster{
 }Monster;
 
 typedef struct Game{
+    bool m_placed;
+    bool p_placed;
+    int r_placed;
     Field* field;
     Player* player;
     int dlvl;
@@ -49,8 +52,11 @@ void sidebar(Game* g);
 void dungeon_draw(Game* g);
 void dungeon_gen(Game* g);
 void monster_gen(Game* g);
+void player_gen(Game* game, Player* player);
 void monster_turn(Game* g);
 void battle(Game* g,int dir_y,int dir_x);
+Monster* createMonster(Game* g);
+void freeMonster(Monster* m);
 Player* createPlayer(Game* g);
 void freePlayer(Player* p);
 int p_move(int input,Game* g);

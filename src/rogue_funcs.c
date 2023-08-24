@@ -4,10 +4,6 @@
 #include <stdbool.h>
 #include <ncurses.h>
 
-extern bool m_placed;
-extern bool p_placed;
-extern int r_placed;
-
 
 extern Monster monsters[10]; 
 
@@ -20,7 +16,7 @@ void dungeon_gen(Game* g){
     int colums = g->field->colums;
     srand(time(NULL));
     /* creating rooms */
-    if (!r_placed){
+    if (!g->r_placed){
         bool r_colision;
         int ry, rx; 
         int r_size_y, r_size_x;
@@ -94,11 +90,11 @@ void dungeon_gen(Game* g){
                 }
             } 
 
-            r_placed++;
+            g->r_placed++;
 
         /* Creating corridors */
             /* rooms centers */
-            if (r_placed > 1){
+            if (g->r_placed > 1){
                 r_old_center_y = r_center_y;
                 r_old_center_x = r_center_x;
             }
@@ -106,7 +102,7 @@ void dungeon_gen(Game* g){
             r_center_x = rx + r_size_x /2;
             
 
-            if (r_placed > 1){
+            if (g->r_placed > 1){
                 int path_y = r_old_center_y;
                 for (; path_y != r_center_y; ){
                     g->field->map[path_y * colums + r_old_center_x] = ' ';
@@ -125,7 +121,7 @@ void dungeon_gen(Game* g){
                     }
                 }
             }
-        }while(r_placed <= room_num);
+        }while(g->r_placed <= room_num);
     /* stairs generetion */
         int sy,sx;
         do{
@@ -143,7 +139,7 @@ void monster_gen(Game* g){
     int colums = g->field->colums;
     srand(time(NULL));
     int y,x; 
-    if (!m_placed){
+    if (!g->m_placed){
         for (int m = 0; m < 10;m++){
             do{
                 y = rand() % (rows - 4) + 2;
@@ -156,10 +152,16 @@ void monster_gen(Game* g){
             monsters[m].awake = 0;
             g->field->map[y * colums + x] = 'm';
         }
-        m_placed = 1;
+        g->m_placed = 1;
     }
 }
-
+void player_gen(Game* game, Player* player){
+    int colums = game->field->colums;
+    do{
+        player->y = rand() % game->field->rows;
+        player->x = rand() % game->field->colums;
+    }while(game->field->map[player->y * colums + player->x] != ' ');
+}
 
 void monster_turn(Game* g){
     int colums = g->field->colums;
@@ -276,9 +278,6 @@ int p_move(int input, Game* g){
             dir_x++;
         }
         if (g->field->map[dir_y * colums + dir_x] == '>' || input == '>'){
-            m_placed = 0;
-            p_placed = 0;
-            r_placed = 0;
             return 1;
         }
 
@@ -291,18 +290,28 @@ int p_move(int input, Game* g){
     }
     return 0;
 }
+
+Monster* createMonster(Game* game){
+    Monster* m = (Monster*)malloc(sizeof(Monster) * 10);
+    monster_gen(game);
+    return m;
+}
+void freeMonster(Monster* m){
+    if(m){
+        free(m);
+    }
+}
 Player* createPlayer(Game* game){
     Player* player = (Player*)malloc(sizeof(Player));
     int colums = game->field->colums;
-    do{
-        player->y = rand() % game->field->rows;
-        player->x = rand() % game->field->colums;
-    }while(game->field->map[player->y * colums + player->x] != ' ');
+    player_gen(game,player);
     player->hp = 10;
     player->gold = 0;
     player->attack = 1;
     return player;
 }
+
+
 void freePlayer(Player* p){
     if (p){
         free(p);
@@ -327,10 +336,13 @@ void freeField(Field* f){
 
 Game* createGame(int rows, int colums){
     Game* game = (Game*)malloc(sizeof(Game));
+    game->m_placed = 0;
+    game->p_placed = 0;
+    game->r_placed = 0;
     game->field = createField(rows, colums);
     dungeon_gen(game);
     game->dlvl = 1;
-    monster_gen(game);
+    game->monsters = createMonster(game);
     game->player = createPlayer(game);
     return game;
 }
@@ -338,6 +350,7 @@ void freeGame(Game* g){
     if (g){
         freePlayer(g->player);
         freeField(g->field);
+        freeMonster(g->monsters);
         free(g);
     }
 }
@@ -351,18 +364,27 @@ int gameloop(int input, Game* game){
     dungeon_draw(game);
 
     attron(COLOR_PAIR(GREEN));
-        mvaddch(game->player->y,game->player->y, '@');
+        mvaddch(game->player->y,game->player->x, '@');
     attroff(COLOR_PAIR(GREEN));
     if (new_lvl){
         clear();
         mvprintw(rows / 2, colums / 2, "LEVEL %d", ++game->dlvl);
+        game->m_placed = 0;
+        game->r_placed = 0;
+        game->p_placed = 0;
+        dungeon_gen(game);
+        monster_gen(game);
+        player_gen(game, game->player);
     }
     if(game->player->hp < 1){
         clear();
         mvprintw(rows/2, colums / 2 - 4 , "Game over");
-        m_placed = 0;
-        p_placed = 0;
-        r_placed = 0;
+        game->m_placed = 0;
+        game->r_placed = 0;
+        game->p_placed = 0;
+        dungeon_gen(game);
+        monster_gen(game);
+        player_gen(game, game->player);
         game->dlvl = 1;
         game->player->attack = 1;
         game->player->hp = 10;

@@ -7,9 +7,6 @@
 #include "rogue_func.h"
 
 
-bool m_placed = 0;
-bool p_placed = 0;
-int r_placed = 0;
 
 Monster monsters[10]; 
 
