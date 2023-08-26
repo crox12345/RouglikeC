@@ -13,9 +13,15 @@
 #define CYAN 6
 #define WHITE 7
 
+typedef struct Sidebar{
+    char* roof_buffer;
+    char* bottom_buffer;
+}Sidebar;
+
 typedef struct Field{
     int rows;
     int colums;
+    Sidebar sidebar;
     char* map;
 }Field;
 
@@ -55,7 +61,6 @@ void monster_gen(Game* g);
 void player_gen(Game* game, Player* player);
 void monster_turn(Game* g);
 void battle(Game* g,int dir_y,int dir_x);
-Monster* createMonster(Game* g);
 void freeMonster(Monster* m);
 Player* createPlayer(Game* g);
 void freePlayer(Player* p);

@@ -4,12 +4,66 @@
 #include <stdbool.h>
 #include <ncurses.h>
 
-
-extern Monster monsters[10]; 
-
 #ifndef ROGUE_FUNC_C
 #define ROGUE_FUNC_C
 
+char roof_buffer[100] ="Gold: %d \t Dungeon level: %d \t HP:  %d \t Attack: %d";
+char bottom_buffer[100] = "hihhiahahaha";
+
+
+void sidebar(Game* g){
+    int rows = g->field->rows;
+    int colums = g->field->colums;
+    int bottom_sidebar_Y = rows - 1;
+    int roof_sidebar_Y = 0;
+    for(int sidebar_X = 0; sidebar_X <= colums - 1; sidebar_X++){
+        /*map[sidebar_Y][sidebar_X] = '=';*/
+        mvaddch(bottom_sidebar_Y, sidebar_X, ' ');
+    }
+    for(int sidebar_X = 0; sidebar_X <= colums - 1; sidebar_X++){
+        /*map[sidebar_Y][sidebar_X] = '=';*/
+        mvaddch(roof_sidebar_Y, sidebar_X, ' ');
+    }
+    mvprintw(roof_sidebar_Y, 0,roof_buffer, g->player->gold, g->dlvl, g->player->hp ,  g->player->attack);
+    mvprintw(bottom_sidebar_Y, 0, bottom_buffer);
+}
+
+/* drawing dungeon */
+void dungeon_draw(Game* g){
+    int rows = g->field->rows;
+    int colums = g->field->colums;
+    char* map = g->field->map;
+    for (int screenY = 0; screenY < rows; screenY++){
+        for (int screenX = 0; screenX < colums; screenX++){
+            if (map[screenY * colums +screenX] == '>'){
+                attron(A_BOLD);
+                    mvaddch(screenY,screenX, '>');
+                attroff(A_BOLD);
+            } 
+            else if (map[screenY * colums + screenX] == '%'){
+                mvaddch(screenY,screenX, '%');
+            }
+            else if (map[screenY * colums + screenX] == ' '){
+                mvaddch(screenY,screenX, ' ');
+            }
+            else if (map[screenY *colums + screenX] == '#'){
+                attron(COLOR_PAIR(MAGENTA));
+                    mvaddch(screenY,screenX, '#');
+                attroff(COLOR_PAIR(MAGENTA));
+            }
+            else if (map[screenY * colums + screenX] == 'm'){
+                for (int m = 0; m < 10;m++){
+                    if (g->monsters[m].y == screenY && g->monsters[m].x == screenX){
+                        attron(COLOR_PAIR(RED));
+                           mvaddch(screenY,screenX,g->monsters[m].type);
+                        attroff(COLOR_PAIR(RED));
+                    }
+                }
+            }
+        }
+    }
+   sidebar(g);
+}
 /* generating dungeon */
 void dungeon_gen(Game* g){
     int rows = g->field->rows;
@@ -145,11 +199,11 @@ void monster_gen(Game* g){
                 y = rand() % (rows - 4) + 2;
                 x = rand() % (colums - 4) + 2;
             }while (g->field->map[y * colums + x] != ' ');
-            monsters[m].y = y;
-            monsters[m].x = x;
-            monsters[m].lvl = rand() % g->dlvl + 2 ;
-            monsters[m].type = rand() % g->dlvl + 97;
-            monsters[m].awake = 0;
+            g->monsters[m].y = y;
+            g->monsters[m].x = x;
+            g->monsters[m].lvl = rand() % g->dlvl + 2 ;
+            g->monsters[m].type = rand() % g->dlvl + 97;
+            g->monsters[m].awake = 0;
             g->field->map[y * colums + x] = 'm';
         }
         g->m_placed = 1;
@@ -168,20 +222,20 @@ void monster_turn(Game* g){
     int dist_y, dist_x;
     for (int m = 0; m < 10;m++){
 
-        if (monsters[m].lvl < 1){
+        if (g->monsters[m].lvl < 1){
             continue;
         }
-        dist_y = abs(monsters[m].y - g->player->y);
-        dist_x = abs(monsters[m].x - g->player->x);
+        dist_y = abs(g->monsters[m].y - g->player->y);
+        dist_x = abs(g->monsters[m].x - g->player->x);
         if (dist_y < 5 && dist_x < 5){
-            monsters[m].awake = 1;
+            g->monsters[m].awake = 1;
         }
-        if (monsters[m].awake  == 0){
+        if (g->monsters[m].awake  == 0){
             continue;
         }
     /* default movement */
-        int dir_y = monsters[m].y;
-        int dir_x = monsters[m].x;
+        int dir_y = g->monsters[m].y;
+        int dir_x = g->monsters[m].x;
         if(dist_y > dist_x){
             if( dir_y < g->player->y){
                 dir_y++;
@@ -198,8 +252,8 @@ void monster_turn(Game* g){
         }
     /* diagonal movement */
         if(g->field->map[dir_y * colums + dir_x] == '#' || g->field->map[dir_y * colums + dir_x] == '%'){
-            dir_y = monsters[m].y;
-            dir_x = monsters[m].x;
+            dir_y = g->monsters[m].y;
+            dir_x = g->monsters[m].x;
             if( dir_y < g->player->y){
                 dir_y++;
             }else{
@@ -215,8 +269,8 @@ void monster_turn(Game* g){
         
     /* inverse movement */
         if(g->field->map[dir_y * colums + dir_x] == '#' || g->field->map[dir_y * colums + dir_x] == '%'){
-            dir_y = monsters[m].y;
-            dir_x = monsters[m].x;
+            dir_y = g->monsters[m].y;
+            dir_x = g->monsters[m].x;
             if( dir_y > g->player->y){
                 dir_y++;
             }else{
@@ -233,10 +287,10 @@ void monster_turn(Game* g){
         if(dist_y < 2 && dist_x < 2){
            g->player->hp -= g->dlvl / 2 + 1;
         }else if (g->field->map[dir_y * colums + dir_x] == ' '){
-            g->field->map[monsters[m].y * colums + monsters[m].x] = ' ';
-            monsters[m].y = dir_y;
-            monsters[m].x = dir_x;
-            g->field->map[monsters[m].y * colums + monsters[m].x] = 'm';
+            g->field->map[g->monsters[m].y * colums + g->monsters[m].x] = ' ';
+            g->monsters[m].y = dir_y;
+            g->monsters[m].x = dir_x;
+            g->field->map[g->monsters[m].y * colums + g->monsters[m].x] = 'm';
 
         }
     }
@@ -245,12 +299,12 @@ void battle(Game* g,int dir_y,int dir_x){
     int colums = g->field->colums;
     int m = 0;
     for (; m < 10; m++){
-        if ((monsters[m].y == dir_y) && (monsters[m].x == dir_x)){
-            if (monsters[m].lvl <= 0){
+        if ((g->monsters[m].y == dir_y) && (g->monsters[m].x == dir_x)){
+            if (g->monsters[m].lvl <= 0){
                 g->field->map[dir_y * colums + dir_x] = ' ';
                 g->player->gold += rand() % 3 + 1;
             }else{
-                monsters[m].lvl -= g->player->attack;
+                g->monsters[m].lvl -= g->player->attack;
             }
             break;
         }
@@ -289,12 +343,6 @@ int p_move(int input, Game* g){
         }
     }
     return 0;
-}
-
-Monster* createMonster(Game* game){
-    Monster* m = (Monster*)malloc(sizeof(Monster) * 10);
-    monster_gen(game);
-    return m;
 }
 void freeMonster(Monster* m){
     if(m){
@@ -342,7 +390,8 @@ Game* createGame(int rows, int colums){
     game->field = createField(rows, colums);
     dungeon_gen(game);
     game->dlvl = 1;
-    game->monsters = createMonster(game);
+    game->monsters = (Monster*)malloc(sizeof(Monster) * 10);
+    monster_gen(game);
     game->player = createPlayer(game);
     return game;
 }
